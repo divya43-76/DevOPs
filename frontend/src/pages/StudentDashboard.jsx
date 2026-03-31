@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import CourseCard from "../components/CourseCard.jsx";
@@ -8,6 +9,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 const StudentDashboard = () => {
   const { user, setUser } = useAuth();
+  const navigate = useNavigate();
   const [recommended, setRecommended] = useState([]);
   const [aiTips, setAiTips] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -28,8 +30,8 @@ const StudentDashboard = () => {
     setLoadingRec(true);
     try {
       const res = await api.get("/courses/recommend");
-      setRecommended(res.data.courses);
-      setAiTips(res.data.aiRecommendations || []);
+      setRecommended(res.data || []);
+      setAiTips([]); // AI tips will be handled separately or added in future
     } finally {
       setLoadingRec(false);
     }
@@ -41,7 +43,7 @@ const StudentDashboard = () => {
       const res = await api.get("/courses", {
         params: { page: pageValue, limit: 6, search },
       });
-      setCourses(res.data.courses);
+      setCourses(res.data.courses || []);
       setPage(res.data.page);
       setPages(res.data.pages);
     } finally {
@@ -52,16 +54,8 @@ const StudentDashboard = () => {
   const loadExams = async () => {
     setLoadingExams(true);
     try {
-      const relevantCategories = ["Government Jobs", "Banking", "Defense", "Civil Services"];
-      const selected = user?.selectedInterests || [];
-      const match = selected.find((s) =>
-        relevantCategories.some((c) => s.toLowerCase().includes(c.toLowerCase()))
-      );
-      const category = match || undefined;
-      const res = await api.get("/exams", {
-        params: category ? { category } : {},
-      });
-      setExams(res.data);
+      const res = await api.get("/exams/recommend");
+      setExams(res.data || []);
     } finally {
       setLoadingExams(false);
     }
@@ -81,6 +75,10 @@ const StudentDashboard = () => {
   const toggleBookmark = async (courseId) => {
     const res = await api.post(`/courses/${courseId}/bookmark`);
     setUser((prev) => ({ ...prev, bookmarks: res.data.bookmarks }));
+  };
+
+  const handleViewDetails = (courseId) => {
+    navigate(`/courses/${courseId}`);
   };
 
   return (
@@ -150,13 +148,13 @@ const StudentDashboard = () => {
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {recommended.map((course) => (
+                  {recommended?.map((course) => (
                     <CourseCard
                       key={course._id}
                       course={course}
                       isBookmarked={bookmarksSet.has(course._id)}
                       onBookmark={() => toggleBookmark(course._id)}
-                      onView={() => {}}
+                      onView={() => handleViewDetails(course._id)}
                     />
                   ))}
                   {!recommended.length && (
@@ -171,8 +169,8 @@ const StudentDashboard = () => {
             <div className="space-y-3">
               <h2 className="text-sm font-semibold">AI Suggestions</h2>
               <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-                {aiTips.length ? (
-                  aiTips.map((tip) => (
+                {aiTips?.length ? (
+                  aiTips?.map((tip) => (
                     <li
                       key={tip}
                       className="rounded-xl border border-dashed border-primary-200 dark:border-primary-700 bg-primary-50/60 dark:bg-primary-900/20 px-3 py-2"
@@ -214,13 +212,13 @@ const StudentDashboard = () => {
             ) : (
               <>
                 <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                  {courses.map((course) => (
+                  {courses?.map((course) => (
                     <CourseCard
                       key={course._id}
                       course={course}
                       isBookmarked={bookmarksSet.has(course._id)}
                       onBookmark={() => toggleBookmark(course._id)}
-                      onView={() => {}}
+                      onView={() => handleViewDetails(course._id)}
                     />
                   ))}
                 </div>
@@ -259,7 +257,7 @@ const StudentDashboard = () => {
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                {exams.map((exam) => (
+                {exams?.map((exam) => (
                   <ExamCard key={exam._id} exam={exam} />
                 ))}
                 {!exams.length && (

@@ -1,18 +1,18 @@
 import express from "express";
 import {
   getCourses,
-  getRecommendedCourses,
+  recommendCourses,
   createCourse,
   updateCourse,
   deleteCourse,
   toggleBookmarkCourse,
 } from "../controllers/courseController.js";
-import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
+import { protect, authorizeRoles, authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.get("/", getCourses);
-router.get("/recommend", protect, getRecommendedCourses);
+router.get("/recommend", authMiddleware, recommendCourses);
 
 router.post("/", protect, authorizeRoles("admin"), createCourse);
 router.put("/:id", protect, authorizeRoles("admin"), updateCourse);

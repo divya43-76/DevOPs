@@ -28,6 +28,8 @@ export const protect = async (req, res, next) => {
   }
 };
 
+export const authMiddleware = protect;
+
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {

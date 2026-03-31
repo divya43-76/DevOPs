@@ -32,17 +32,23 @@ export const getCourses = async (req, res) => {
       query.category = { $regex: interest, $options: "i" };
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const numericPage = Number(page) || 1;
+    const numericLimit = Number(limit) || 10;
+
+    const skip = (numericPage - 1) * numericLimit;
 
     const [courses, total] = await Promise.all([
-      Course.find(query).skip(skip).limit(Number(limit)).sort({ createdAt: -1 }),
+      Course.find(query).skip(skip).limit(numericLimit).sort({ createdAt: -1 }),
       Course.countDocuments(query),
     ]);
 
+    const totalPages =
+      total === 0 ? 1 : Math.ceil(total / numericLimit);
+
     res.json({
       courses,
-      page: Number(page),
-      pages: Math.ceil(total / Number(limit)),
+      totalPages,
+      currentPage: numericPage,
       total,
     });
   } catch (error) {
@@ -52,40 +58,58 @@ export const getCourses = async (req, res) => {
 };
 
 // GET /api/courses/recommend
-export const getRecommendedCourses = async (req, res) => {
+export const recommendCourses = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user.id);
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const aiRecs = getAIRecommendations({
-      interests: user.selectedInterests || [],
-      classLevel: user.classLevel,
-      location: user.preferredLocation,
-    });
+    let courses = [];
 
-    const interestsRegex = (user.selectedInterests || []).map((i) => ({
-      category: { $regex: i, $options: "i" },
-    }));
+    if (user.selectedInterests && user.selectedInterests.length > 0) {
+      // Interest to course keywords mapping
+      const interestMap = {
+        "Medical & Healthcare": ["MBBS", "BDS", "BAMS", "Healthcare", "Medicine", "Nursing", "Ayurveda"],
+        "Engineering & Technology": ["B.Tech", "Computer Science", "AI", "Software", "Engineering", "Electronics", "Mechanical"],
+        "Commerce & Management": ["B.Com", "BBA", "Finance", "Accounting", "Commerce", "Chartered", "Management"],
+        "Arts & Humanities": ["BA", "Psychology", "History", "Literature", "Philosophy", "Sociology"],
+        "Law": ["LLB", "Law", "Legal"],
+        "Agriculture": ["Agriculture", "Agronomy", "Veterinary"],
+        "Hospitality": ["Hotel Management", "Tourism", "Hospitality"],
+      };
 
-    const aiTitleRegex = aiRecs.map((title) => ({
-      title: { $regex: title, $options: "i" },
-    }));
+      // Convert interests into keywords
+      let keywords = [];
+      user.selectedInterests.forEach((interest) => {
+        if (interestMap[interest]) {
+          keywords.push(...interestMap[interest]);
+        } else {
+          keywords.push(interest);
+        }
+      });
 
-    const orConditions = [...interestsRegex, ...aiTitleRegex];
+      // Use flexible search with regex
+      courses = await Course.find({
+        $or: [
+          { title: { $in: keywords.map((k) => new RegExp(k, "i")) } },
+          { category: { $in: keywords.map((k) => new RegExp(k, "i")) } },
+        ],
+      });
+    }
 
-    const query = orConditions.length ? { $or: orConditions } : {};
+    // If no courses found, return all courses as fallback
+    if (!courses || courses.length === 0) {
+      courses = await Course.find().sort({ createdAt: -1 });
+    }
 
-    const courses = await Course.find(query).limit(20);
+    console.log("Matched courses for user interests:", courses.length);
 
-    res.json({
-      aiRecommendations: aiRecs,
-      courses,
-    });
+    res.status(200).json(courses);
   } catch (error) {
     console.error("Recommend courses error:", error);
-    res.status(500).json({ message: "Server error fetching recommendations" });
+    res.status(500).json({ message: error.message });
   }
 };
 
