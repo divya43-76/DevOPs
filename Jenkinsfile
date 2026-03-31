@@ -5,15 +5,19 @@ pipeline {
         nodejs 'NodeJS'
     }
 
+    environment {
+        PORT = '5000'
+    }
+
     stages {
 
-        stage('Clone Repository') {
+        stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/divya43-76/DevOPs.git'
             }
         }
 
-        stage('Install Backend') {
+        stage('Install Backend Dependencies') {
             steps {
                 dir('backend') {
                     bat 'npm install'
@@ -21,7 +25,7 @@ pipeline {
             }
         }
 
-        stage('Install Frontend') {
+        stage('Install Frontend Dependencies') {
             steps {
                 dir('frontend') {
                     bat 'npm install'
@@ -29,18 +33,18 @@ pipeline {
             }
         }
 
-        stage('Start Backend') {
+        stage('Build Frontend') {
             steps {
-                dir('backend') {
-                    bat 'start cmd /c npm start'
+                dir('frontend') {
+                    bat 'npm run build'
                 }
             }
         }
 
-        stage('Run Frontend Dev Server') {
+        stage('Deploy Backend') {
             steps {
-                dir('frontend') {
-                    bat 'start cmd /c npm run dev'
+                dir('backend') {
+                    bat 'npm start'
                 }
             }
         }
