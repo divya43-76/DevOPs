@@ -1,6 +1,14 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs 'NodeJS'
+    }
+
+    environment {
+        PORT = '5000'
+    }
+
     stages {
 
         stage('Checkout Code') {
@@ -9,18 +17,18 @@ pipeline {
             }
         }
 
-        stage('Install Backend') {
+        stage('Install Backend Dependencies') {
             steps {
                 dir('backend') {
-                    sh 'npm install'
+                    bat 'npm install'
                 }
             }
         }
 
-        stage('Install Frontend') {
+        stage('Install Frontend Dependencies') {
             steps {
                 dir('frontend') {
-                    sh 'npm install'
+                    bat 'npm install'
                 }
             }
         }
@@ -28,7 +36,15 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
-                    sh 'npm run build'
+                    bat 'npm run build'
+                }
+            }
+        }
+
+        stage('Deploy Backend') {
+            steps {
+                dir('backend') {
+                    bat 'npm start'
                 }
             }
         }
